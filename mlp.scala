@@ -39,10 +39,29 @@ var O=BDV.zeros[Double](layers(2))    //输出层节点
 val lr=0.6     //learnrate学习率
 var E=1.0*Y.size    //总误差
 
+//固定初始化
+def init(){
+    W1=W1*0.0+0.5
+    W2=W2*0.0+0.5
+    B1=0.5
+    B2=0.5
+}
+
 //FP，前向计算结果
 def fp(x:BDV[Double]){
      H1 = sigmoid(W1 * x +B1) //隐藏层计算，S激活
      O = sigmoid(W2 * H1 + B2) //输出层计算，S激活
+}
+//BP，后向更新权重
+def bp(x:BDV[Double],y:BDV[Double]){
+	val ds=sigmoid(O) :* (1.0 - sigmoid(O))    //求导  
+    val T2=(y - O) :* ds :* O    //计算theta2
+    val dh=sigmoid(H1) :* (1.0 - sigmoid(H1))
+    val T1=(T2.t * W2).t :* dh :* H1    //计算theta1
+    W1 += lr * T1 * x.t    //先更新W1，虽然反向计算但更新W1应该用W2的原值
+    W2 += lr * T2 * H1.t //更新W2
+    B1 += lr * sum(T1)    //更新B，TODO
+    B2 += lr * sum(T2)
 }
 //预测
 def predict(x:BDV[Double]):BDV[Double]={fp(x);O}
@@ -58,16 +77,8 @@ def fit(ir:Int){
         for(i <- 0 until X.rows){
             fp(X(i,::).t)
             if(bingo(O,Y(i,::).t)){right += 1.0}
-            //BP，后向更新权重
-            val T2=(((Y(i,::).t - O) :* O :* ( 1.0 - O)))    //计算theta2
-            val T1=(T2.t * W2).t :* H1 :* (1.0 -H1)    //计算theta1
-            W1 += lr * T1 * X(i,::)    //先更新W1，虽然反向计算但更新W1应该用W2的原值
-            W2 += lr * T2 * H1.t //更新W2
-            B1 += lr * sum(T1)    //更新B，TODO
-            B2 += lr * sum(T2)
-                
+            bp(X(i,::).t,Y(i,::).t)    
             E += sum(pow((Y(i,::).t - O),2) / O.size.toDouble)    //总误差
-            //println(s"#$iter#$right#$E#${Y(i,::).t}#$O")
         }
         println(s"""#$iter#$right#${E.formatted("%.3f")}#${(1.0d*right/Y.rows).formatted("%.3f")}#${(System.currentTimeMillis - start)/1000}""")
     }
@@ -85,7 +96,7 @@ def transform(t:(BDM[Double],BDM[Double])):Double = {
     right/t._1.rows
 }
 
-fit(10)
+fit(300)
 
 //transform(mnistBDM("t10k"))
 transform(oneBDM(test))
